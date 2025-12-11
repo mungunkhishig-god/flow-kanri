@@ -1,0 +1,5 @@
+//MongoDB creds
+
+tmungunkhishig_db_user:ChGWI0vuDAgvxpMq
+
+mongodb+srv://tmungunkhishig_db_user:ChGWI0vuDAgvxpMq@cluster0.txyqg2g.mongodb.net/?appName=Cluster0
