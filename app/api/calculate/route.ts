@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeams, updateFlow } from "@/lib/mongodb";
+import { getTeams, updateFlow, addFlow } from "@/lib/mongodb";
+import { Flow } from "@/types/team";
+
+interface ErrorData {
+  code?: string;
+  message?: string;
+}
+
+interface RequestData {
+  error?: ErrorData;
+  status?: string;
+  [key: string]: any;
+}
 
 interface CalculateRequest {
   teamName: string;
   flowName: string;
   status_code: string | number;
-  body?: string | unknown;
+  data?: RequestData;
 }
 
 // Map English team names to Japanese names
@@ -20,7 +32,7 @@ const TEAM_NAME_MAP: Record<string, string> = {
 export async function POST(request: NextRequest) {
   try {
     const requestBody: CalculateRequest = await request.json();
-    const { teamName, flowName, status_code, body } = requestBody;
+    const { teamName, flowName, status_code, data } = requestBody;
 
     if (!teamName || !flowName) {
       return NextResponse.json(
@@ -41,15 +53,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           success: false, 
-          error: `Team '${teamName}' not found. Available teams: ${Object.keys(TEAM_NAME_MAP).join(', ')}`
+          error: `Team '${teamName}' not found.`
         },
         { status: 404 }
       );
     }
 
+    // Parse status code
+    const statusCode = typeof status_code === 'string' ? parseInt(status_code) : status_code;
+    
+    // Determine error message from data object
+    let errorMessage = "";
+    if (data?.error?.message) {
+      errorMessage = data.error.message;
+    } else if (statusCode >= 400 && typeof data === 'string') {
+       errorMessage = data;
+    }
+
     // Find flow by name OR id (case-insensitive, flexible matching)
     // Normalize by lowercasing and removing all non-alphanumeric characters
-    // This allows "khadaan flow 001" to match "khadaan-flow-001"
     const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
     const searchTarget = normalize(flowName);
 
@@ -59,58 +81,63 @@ export async function POST(request: NextRequest) {
       return dbFlowName === searchTarget || dbFlowId === searchTarget;
     });
 
-    if (!flow) {
-      const availableFlows = team.flows.map(f => `${f["flow-name"]} (${f.id})`).join(', ');
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: `Flow '${flowName}' not found in team '${teamName}'. Available flows: ${availableFlows}`
-        },
-        { status: 404 }
-      );
+    if (flow) {
+      // UPDATE existing flow
+      const updated = await updateFlow(team._id, flow.id, {
+        "status-code": statusCode,
+        "error-message": errorMessage,
+      });
+
+       if (!updated) {
+        return NextResponse.json(
+          { success: false, error: "Failed to update existing flow" },
+          { status: 500 }
+        );
+      }
+      
+      return NextResponse.json({
+        success: true,
+        message: `Updated flow '${flowName}' in team '${teamName}'`,
+        result: {
+           statusCode,
+           errorMessage
+        }
+      });
+
+    } else {
+      // CREATE new flow
+      // Generate ID: teamName-flowName (normalized)
+      const newFlowId = `${normalizedTeamName}-${flowName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+      
+      const newFlow: Flow = {
+        id: newFlowId,
+        "flow-name": flowName,
+        "status-code": statusCode,
+        "error-message": errorMessage,
+        timestamp: new Date().toISOString(),
+        lastUpdated: new Date().toISOString()
+      };
+
+      const added = await addFlow(team._id, newFlow);
+
+      if (!added) {
+        return NextResponse.json(
+          { success: false, error: "Failed to create new flow" },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: `Created new flow '${flowName}' in team '${teamName}'`,
+        result: {
+           statusCode,
+           errorMessage,
+           flowId: newFlowId
+        }
+      });
     }
 
-    // Parse status code
-    const statusCode = typeof status_code === 'string' ? parseInt(status_code) : status_code;
-    
-    // Determine error message from body
-    let errorMessage = "";
-    if (statusCode >= 400) {
-      // If status is error, use body as error message
-      errorMessage = typeof body === 'string' ? body : JSON.stringify(body);
-    }
-
-    console.log('Received calculation request:', { 
-      teamName, 
-      flowName, 
-      flowId: flow.id,
-      status_code: statusCode, 
-      body 
-    });
-
-    // Update the flow in MongoDB
-    const updated = await updateFlow(team._id, flow.id, {
-      "status-code": statusCode,
-      "error-message": errorMessage,
-    });
-
-    if (!updated) {
-      return NextResponse.json(
-        { success: false, error: "Flow not found or not updated" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      result: {
-        statusCode,
-        errorMessage,
-        flowId: flow.id,
-        flowName: flow["flow-name"]
-      },
-      message: `Updated flow '${flowName}' in team '${teamName}' with status ${statusCode}`
-    });
   } catch (error) {
     console.error("Error in /api/calculate:", error);
     return NextResponse.json(

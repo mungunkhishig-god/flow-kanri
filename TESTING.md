@@ -10,62 +10,62 @@ The `/api/calculate` endpoint is used to update flow status after performing cal
 - **Method**: `POST`
 - **Content-Type**: `application/json`
 
-## Request Format
+### Request Format
 
 ### Required Fields
 
 ```json
 {
-  "teamId": "string", // MongoDB ObjectId of the team
-  "flowId": "string", // Flow ID (e.g., "khadaan-flow-001")
-  "params": {} // Optional: calculation parameters
-}
-```
-
-### Example Request
-
-```json
-{
-  "teamId": "675a1234567890abcdef1234",
-  "flowId": "khadaan-flow-001",
-  "params": {
-    "calculation_type": "daily_report",
-    "data_source": "mining_sensors"
+  "teamName": "string", // e.g. "khadaan"
+  "flowName": "string", // Flow Name (will create new flow if not found)
+  "status_code": "string", // Status code (e.g. "200", "400")
+  "data": {
+    // Data object
+    "status": "string", // Optional status text
+    "error": {
+      // Optional error object
+      "code": "string",
+      "message": "string"
+    }
   }
 }
 ```
 
-## Response Format
+### Example Requests
 
-### Success Response (200)
+**Success Case:**
 
 ```json
 {
-  "success": true,
-  "result": {
-    "statusCode": 200,
-    "errorMessage": ""
+  "status_code": "200",
+  "flowName": "khadaan flow 001",
+  "teamName": "khadaan",
+  "data": {
+    "status": ""
   }
 }
 ```
 
-### Error Response (400)
+**Error Case:**
 
 ```json
 {
-  "success": false,
-  "error": "teamId and flowId are required"
+  "status_code": "400",
+  "flowName": "khadaan flow 001",
+  "teamName": "khadaan",
+  "data": {
+    "error": {
+      "code": "ExitError",
+      "message": "error: CRITICAL FAILURE detected"
+    }
+  }
 }
 ```
 
-### Error Response (404)
+### Dynamic Flow Creation
 
-```json
-{
-  "success": false,
-  "error": "Flow not found or not updated"
-}
-```
+If the `flowName` matches an existing flow (by name or ID), it updates that flow.
+If the `flowName` does **NOT** exist, a **NEW flow** will be automatically created in the database for that team!
 
 ## How to Test
 

@@ -122,4 +122,25 @@ export async function updateFlow(
   return result.matchedCount > 0 && result.modifiedCount > 0;
 }
 
+/**
+ * Add a new flow to a team
+ */
+export async function addFlow(
+  teamId: string,
+  flow: Flow
+): Promise<boolean> {
+  const db = await getDb();
+  
+  const result = await db.collection("teams").updateOne(
+    { _id: new ObjectId(teamId) },
+    {
+      $push: {
+        flows: flow,
+      } as any,
+    }
+  );
+  
+  return result.modifiedCount > 0;
+}
+
 export default clientPromise;
