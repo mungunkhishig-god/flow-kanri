@@ -47,15 +47,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find flow by name (case-insensitive, flexible matching)
-    const normalizedFlowName = flowName.toLowerCase().replace(/\s+/g, ' ').trim();
+    // Find flow by name OR id (case-insensitive, flexible matching)
+    // Normalize by lowercasing and removing all non-alphanumeric characters
+    // This allows "khadaan flow 001" to match "khadaan-flow-001"
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const searchTarget = normalize(flowName);
+
     const flow = team.flows.find(f => {
-      const dbFlowName = f["flow-name"].toLowerCase().replace(/\s+/g, ' ').trim();
-      return dbFlowName === normalizedFlowName;
+      const dbFlowName = normalize(f["flow-name"]);
+      const dbFlowId = normalize(f.id);
+      return dbFlowName === searchTarget || dbFlowId === searchTarget;
     });
 
     if (!flow) {
-      const availableFlows = team.flows.map(f => f["flow-name"]).join(', ');
+      const availableFlows = team.flows.map(f => `${f["flow-name"]} (${f.id})`).join(', ');
       return NextResponse.json(
         { 
           success: false, 
