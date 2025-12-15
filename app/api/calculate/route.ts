@@ -24,7 +24,7 @@ interface CalculateRequest {
 const TEAM_NAME_MAP: Record<string, string> = {
   "khadaan": "ハダーン",
   "nomads": "ノマッズ",
-  "tenger": "テンゲル",
+  "tenger": "テンゲリ",
   "cashmere": "カシミア",
   "bayan": "バヤン"
 };
