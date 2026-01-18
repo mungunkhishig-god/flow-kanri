@@ -68,7 +68,7 @@ async function testDynamicFlows() {
 async function sendRequest(body) {
     console.log('   Request:', JSON.stringify(body, null, 2));
     try {
-        const response = await fetch('http://127.0.0.1:3005/api/calculate', {
+        const response = await fetch('http://127.0.0.1:3100/api/calculate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body)

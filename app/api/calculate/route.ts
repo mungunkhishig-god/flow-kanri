@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeams, updateFlow, addFlow } from "@/lib/mongodb";
-import { Flow } from "@/types/team";
+import { getTeams, updateFlow, addFlow, addLogEntry } from "@/lib/mongodb";
+import { Flow, LogEntry } from "@/types/team";
 
 interface ErrorData {
   code?: string;
@@ -95,6 +95,17 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      // Log historical entry
+      await addLogEntry({
+        id: flow.id,
+        "flow-name": flow["flow-name"],
+        "status-code": statusCode,
+        "error-message": errorMessage,
+        teamId: team._id.toString(),
+        teamName: team.name,
+        timestamp: new Date().toISOString()
+      });
+
       return NextResponse.json({
         success: true,
         message: `Updated flow '${flowName}' in team '${teamName}'`,
@@ -127,6 +138,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Log historical entry
+      await addLogEntry({
+        ...newFlow,
+        teamId: team._id.toString(),
+        teamName: team.name,
+      });
+
       return NextResponse.json({
         success: true,
         message: `Created new flow '${flowName}' in team '${teamName}'`,
@@ -138,10 +156,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error in /api/calculate:", error);
     return NextResponse.json(
-      { success: false, error: "Internal server error" },
+      { success: false, error: error.message || "Internal server error" },
       { status: 500 }
     );
   }

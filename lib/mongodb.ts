@@ -1,7 +1,7 @@
 import "server-only";
 
 import { MongoClient, Db, ObjectId } from "mongodb";
-import { Team, Flow } from "@/types/team";
+import { Team, Flow, LogEntry } from "@/types/team";
 
 if (!process.env.MONGODB_URI) {
   throw new Error("Please add your MongoDB URI to .env.local");
@@ -98,6 +98,7 @@ export async function updateFlow(
   const db = await getDb();
   
   const updateFields: Record<string, unknown> = {
+    "flows.$.timestamp": new Date().toISOString(),
     "flows.$.lastUpdated": new Date().toISOString(),
   };
   
@@ -136,11 +137,27 @@ export async function addFlow(
     {
       $push: {
         flows: flow,
-      } as any,
+      } as unknown as any, // Bypass strict push typing for custom Flow interface
     }
   );
   
   return result.modifiedCount > 0;
+}
+
+/**
+ * Add a historical log entry
+ */
+export async function addLogEntry(
+  logEntry: LogEntry
+): Promise<boolean> {
+  const db = await getDb();
+  
+  const result = await db.collection("logs").insertOne({
+    ...logEntry,
+    timestamp: logEntry.timestamp || new Date().toISOString(),
+  });
+  
+  return result.acknowledged;
 }
 
 export default clientPromise;
